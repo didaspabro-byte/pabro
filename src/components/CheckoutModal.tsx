@@ -103,7 +103,7 @@ export default function CheckoutModal({ isOpen, onClose, cartItems, onOrderPlace
   // Load settings and coupons dynamically
   const getStoreSettings = () => {
     const defaultSettings = {
-      shopName: 'shop corner',
+      shopName: 'PrimeStockUG',
       standardShipping: 7000,
       vatRate: 0,
       bannerAnnouncement: 'Enjoy quick shipping to all regions across Uganda!'
@@ -115,9 +115,12 @@ export default function CheckoutModal({ isOpen, onClose, cartItems, onOrderPlace
         if (parsed.bannerAnnouncement && parsed.bannerAnnouncement.includes('free standard')) {
           parsed.bannerAnnouncement = parsed.bannerAnnouncement.replace('free standard', 'quick');
         }
+        if (!parsed.shopName || parsed.shopName.toLowerCase() === 'shop corner') {
+          parsed.shopName = 'PrimeStockUG';
+        }
         parsed.vatRate = 0;
         localStorage.setItem('aura_store_settings', JSON.stringify(parsed));
-        return { ...defaultSettings, ...parsed, vatRate: 0 };
+        return { ...defaultSettings, ...parsed, shopName: parsed.shopName || 'PrimeStockUG', vatRate: 0 };
       }
     } catch {
       // Fallback to defaultSettings

@@ -632,7 +632,7 @@ export default function App() {
 
   const [storeSettings, setStoreSettings] = useState(() => {
     const defaultSettings = {
-      shopName: 'shop corner',
+      shopName: 'PrimeStockUG',
       standardShipping: 7000,
       vatRate: 0,
       bannerAnnouncement: 'Enjoy quick shipping to all regions across Uganda!'
@@ -644,9 +644,12 @@ export default function App() {
         if (parsed.bannerAnnouncement && parsed.bannerAnnouncement.includes('free standard')) {
           parsed.bannerAnnouncement = parsed.bannerAnnouncement.replace('free standard', 'quick');
         }
+        if (!parsed.shopName || parsed.shopName.toLowerCase() === 'shop corner') {
+          parsed.shopName = 'PrimeStockUG';
+        }
         parsed.vatRate = 0;
         localStorage.setItem('aura_store_settings', JSON.stringify(parsed));
-        return { ...defaultSettings, ...parsed, vatRate: 0 };
+        return { ...defaultSettings, ...parsed, shopName: parsed.shopName || 'PrimeStockUG', vatRate: 0 };
       }
     } catch (e) {
       console.error(e);
@@ -1689,7 +1692,16 @@ export default function App() {
             >
               <ShopCornerIcon className="h-6 w-6" />
               <div className="flex items-center">
-                {storeSettings.shopName.includes(' ') ? (
+                {storeSettings.shopName === 'PrimeStockUG' ? (
+                  <span className="flex items-center tracking-tight">
+                    <span className="text-orange-500 dark:text-orange-400 font-black text-base">
+                      PrimeStock
+                    </span>
+                    <span className="text-slate-900 dark:text-white font-black text-base">
+                      UG
+                    </span>
+                  </span>
+                ) : storeSettings.shopName.includes(' ') ? (
                   <>
                     <span className="text-orange-500 dark:text-orange-400 font-extrabold mr-1">
                       {storeSettings.shopName.split(' ')[0]}
@@ -2439,7 +2451,7 @@ export default function App() {
                 </div>
                 
                 <h3 className="text-2xl font-black text-white tracking-tight sm:text-3xl">
-                  Join the <span className="text-orange-500 dark:text-orange-400 font-extrabold">shop corner</span> Circle
+                  Join the <span className="text-orange-500 dark:text-orange-400 font-extrabold">PrimeStockUG</span> Circle
                 </h3>
                 <p className="mt-3 text-sm text-slate-400 leading-relaxed max-w-lg">
                   Subscribe to receive weekly drops, high-precision designs, and exclusive Ugandan shipping updates directly in your inbox.

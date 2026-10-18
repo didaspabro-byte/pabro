@@ -26,7 +26,7 @@ export default function AdminOrderNotificationBar({
   if (!order) return null;
 
   const cleanPhone = order.shippingDetails.phone ? order.shippingDetails.phone.replace(/[^0-9+]/g, '') : '';
-  const whatsappUrl = cleanPhone ? `https://wa.me/${cleanPhone.replace('+', '')}?text=${encodeURIComponent(`Hello ${order.shippingDetails.fullName}, regarding your order #${order.id} from Shop Corner...`)}` : '';
+  const whatsappUrl = cleanPhone ? `https://wa.me/${cleanPhone.replace('+', '')}?text=${encodeURIComponent(`Hello ${order.shippingDetails.fullName}, regarding your order #${order.id} from PrimeStockUG...`)}` : '';
 
   return (
     <AnimatePresence>

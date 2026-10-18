@@ -54,7 +54,7 @@ export default function FaqSection() {
       id: 'faq_7',
       category: 'products',
       question: 'Are the premium items authentic minimalist designs?',
-      answer: 'Yes. Every item in the shop corner catalog is sourced or designed focusing on extreme geometric precision, minimalist aesthetics, high sustainability metrics, and professional daily utility.',
+      answer: 'Yes. Every item in the PrimeStockUG catalog is sourced or designed focusing on extreme geometric precision, minimalist aesthetics, high sustainability metrics, and professional daily utility.',
     }
   ];
 

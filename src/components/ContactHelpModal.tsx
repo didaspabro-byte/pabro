@@ -39,7 +39,7 @@ export default function ContactHelpModal({
   const WHATSAPP_DISPLAY = '+256 756 351 236';
 
   // Physical Store Address
-  const STORE_ADDRESS = 'Shop Corner Flagship Store, Plot 14 Acacia Avenue, Kololo, Kampala, Uganda';
+  const STORE_ADDRESS = 'PrimeStockUG Flagship Store, Plot 14 Acacia Avenue, Kololo, Kampala, Uganda';
   const GOOGLE_MAPS_LINK = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(STORE_ADDRESS)}`;
 
   // Form State
@@ -89,7 +89,7 @@ export default function ContactHelpModal({
   };
 
   const openWhatsApp = (customText?: string) => {
-    const text = customText || 'Hello Shop Corner! I am reaching out regarding a store inquiry.';
+    const text = customText || 'Hello PrimeStockUG! I am reaching out regarding a store inquiry.';
     const url = `https://wa.me/${WHATSAPP_RAW}?text=${encodeURIComponent(text)}`;
     try {
       const opened = window.open(url, '_blank', 'noopener,noreferrer');
@@ -396,7 +396,7 @@ export default function ContactHelpModal({
                       <MapPin className="h-5 w-5" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-black text-white">Shop Corner Flagship Store</h4>
+                      <h4 className="text-sm font-black text-white">PrimeStockUG Flagship Store</h4>
                       <p className="text-xs text-slate-400">Main Retail Showroom & Fulfillment Center</p>
                     </div>
                   </div>
@@ -423,7 +423,7 @@ export default function ContactHelpModal({
 
                   <div className="flex items-center gap-2.5">
                     <Mail className="h-4 w-4 text-indigo-400 shrink-0" />
-                    <span className="text-slate-200 font-medium">support@shopcorner.app</span>
+                    <span className="text-slate-200 font-medium">support@primestockug.com</span>
                   </div>
                 </div>
 

@@ -47,14 +47,14 @@ export default function SupportChatWidget({
   const [submittedTicket, setSubmittedTicket] = useState<SupportTicket | null>(null);
 
   const quickWaTemplates = [
-    { label: '📦 Order Status Inquiry', text: 'Hi Shop Corner Support! I would like to inquire about the status of my recent order.' },
+    { label: '📦 Order Status Inquiry', text: 'Hi PrimeStockUG Support! I would like to inquire about the status of my recent order.' },
     { label: '💳 Payment or Billing Issue', text: 'Hello! I need help regarding a payment or billing question on my checkout.' },
     { label: '🛍️ Product & Sizing Advice', text: 'Hi! Could you help me choose the right product size or spec for my needs?' },
     { label: '🔄 Returns & Exchanges', text: 'Hello Support, I need assistance with initiating a return or exchange.' }
   ];
 
   const handleOpenWhatsApp = (messageText: string) => {
-    const encodedText = encodeURIComponent(messageText || 'Hi Shop Corner Support, I need help with my shopping.');
+    const encodedText = encodeURIComponent(messageText || 'Hi PrimeStockUG Support, I need help with my shopping.');
     const waUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedText}`;
     try {
       const opened = window.open(waUrl, '_blank', 'noopener,noreferrer');
@@ -220,7 +220,7 @@ export default function SupportChatWidget({
                   </div>
                   <div>
                     <h4 className="text-xs font-black text-slate-900 dark:text-white">
-                      Shop Corner Official WhatsApp
+                      PrimeStockUG Official WhatsApp
                     </h4>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
                       Direct line: <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">{DISPLAY_PHONE}</span>

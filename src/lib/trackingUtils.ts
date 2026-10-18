@@ -1,6 +1,6 @@
 import { Order, OrderTrackingInfo, OrderTrackingEvent } from '../types';
 
-export const DEFAULT_CARRIER = 'ShopCorner Priority Express';
+export const DEFAULT_CARRIER = 'PrimeStockUG Priority Express';
 export const DEFAULT_CARRIER_SERVICE = 'Direct Air & Ground Logistics';
 
 export function getOrCreateOrderTrackingInfo(order: Order): OrderTrackingInfo {
@@ -10,7 +10,7 @@ export function getOrCreateOrderTrackingInfo(order: Order): OrderTrackingInfo {
   }
 
   const cleanNum = order.id.replace(/[^A-Za-z0-9]/g, '');
-  const trackingNumber = order.trackingNumber || `AURA-${cleanNum.slice(-6)}-EX`;
+  const trackingNumber = order.trackingNumber || `PSUG-${cleanNum.slice(-6)}-EX`;
   const carrier = order.carrier || DEFAULT_CARRIER;
   const carrierService = DEFAULT_CARRIER_SERVICE;
 

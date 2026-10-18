@@ -350,7 +350,7 @@ export default function AdminPanel({
   // Hoisted Settings Subtab States
   const [settingsObj, setSettingsObj] = useState(() => {
     const defaultSettings = {
-      shopName: 'shop corner',
+      shopName: 'PrimeStockUG',
       standardShipping: 7000,
       vatRate: 0,
       bannerAnnouncement: 'Enjoy quick shipping to all regions across Uganda!'
@@ -362,9 +362,12 @@ export default function AdminPanel({
         if (parsed.bannerAnnouncement && parsed.bannerAnnouncement.includes('free standard')) {
           parsed.bannerAnnouncement = parsed.bannerAnnouncement.replace('free standard', 'quick');
         }
+        if (!parsed.shopName || parsed.shopName.toLowerCase() === 'shop corner') {
+          parsed.shopName = 'PrimeStockUG';
+        }
         parsed.vatRate = 0;
         localStorage.setItem('aura_store_settings', JSON.stringify(parsed));
-        return { ...defaultSettings, ...parsed, vatRate: 0 };
+        return { ...defaultSettings, ...parsed, shopName: parsed.shopName || 'PrimeStockUG', vatRate: 0 };
       }
     } catch {
       // Fallback
@@ -1154,7 +1157,7 @@ export default function AdminPanel({
                     </p>
                     <div className="flex items-center gap-1.5 pt-0.5">
                       <a
-                        href={`https://wa.me/${activeAlertOrder.shippingDetails.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello ${activeAlertOrder.shippingDetails.fullName}, confirming your Shop Corner order #${activeAlertOrder.id}...`)}`}
+                        href={`https://wa.me/${activeAlertOrder.shippingDetails.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello ${activeAlertOrder.shippingDetails.fullName}, confirming your PrimeStockUG order #${activeAlertOrder.id}...`)}`}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black shadow-2xs"
