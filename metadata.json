@@ -1,0 +1,8 @@
+{
+  "name": "shop corner",
+  "description": "A high-end, responsive online shop showcasing minimalist technology, premium apparel, home wellness goods, and athletic gear with an interactive cart, detailed product drawer, multi-step secure checkout, and invoice activity logs.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
