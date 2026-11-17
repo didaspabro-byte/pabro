@@ -1533,6 +1533,23 @@ export default function App() {
     }
   };
 
+  // Permanently delete multiple orders (for bulk admin actions)
+  const handleDeleteMultipleOrders = async (orderIds: string[]) => {
+    if (orderIds.length === 0) return;
+    const idsSet = new Set(orderIds);
+    const updated = orders.filter((o) => !idsSet.has(o.id));
+    setOrders(updated);
+    if (adminOrderAlert && idsSet.has(adminOrderAlert.id)) {
+      setAdminOrderAlert(null);
+    }
+    try {
+      localStorage.setItem('aura_shop_orders', JSON.stringify(updated));
+      await Promise.all(orderIds.map((id) => deleteFirestoreOrder(id)));
+    } catch (e) {
+      console.error('Failed to bulk delete orders from storage:', e);
+    }
+  };
+
   // Permanently clear all cancelled orders
   const handleClearCancelledOrders = async () => {
     const isCancelled = (status?: string) => {
@@ -2533,6 +2550,8 @@ export default function App() {
               orders={orders}
               onUpdateProducts={handleUpdateProducts}
               onUpdateOrders={handleUpdateOrders}
+              onDeleteOrder={handleDeleteOrder}
+              onDeleteMultipleOrders={handleDeleteMultipleOrders}
               categories={categories}
               onAddCategory={handleAddCategory}
               onRemoveCategory={handleRemoveCategory}

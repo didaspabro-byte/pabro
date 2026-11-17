@@ -60,7 +60,7 @@ async function startServer() {
           inStock: p.stock > 0
         }));
 
-        const systemInstruction = `You are Aura, the expert AI Shopping Advisor & Personal Stylist for Shop Corner.
+        const systemInstruction = `You are Aura, the expert AI Shopping Advisor & Personal Stylist for PrimeStockUG.
 Your goal is to help shoppers discover products, compare features, get gift ideas, choose the right items, or check their order/delivery status.
 Be friendly, concise, helpful, and sophisticated. Keep responses scannable and under 150 words when possible.
 
@@ -87,7 +87,7 @@ Whenever you recommend, mention, or suggest a product from the catalog above, yo
           }
         });
 
-        const replyText = response.text || "I'm here to help you find the perfect product at Shop Corner!";
+        const replyText = response.text || "I'm here to help you find the perfect product at PrimeStockUG!";
         return res.json({ reply: replyText });
       } else {
         // Smart fallback when GEMINI_API_KEY is not set

@@ -35,7 +35,9 @@ import {
   Volume2,
   VolumeX,
   ExternalLink,
-  Printer
+  Printer,
+  CheckSquare,
+  CheckCircle2
 } from 'lucide-react';
 import { useCurrency } from '../context/CurrencyContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -58,6 +60,8 @@ interface AdminPanelProps {
   orders: Order[];
   onUpdateProducts: (updated: Product[]) => void;
   onUpdateOrders: (updated: Order[]) => void;
+  onDeleteOrder?: (orderId: string) => Promise<void> | void;
+  onDeleteMultipleOrders?: (orderIds: string[]) => Promise<void> | void;
   categories: string[];
   onAddCategory: (category: string) => void;
   onRemoveCategory: (category: string) => void;
@@ -145,6 +149,8 @@ export default function AdminPanel({
   orders,
   onUpdateProducts,
   onUpdateOrders,
+  onDeleteOrder,
+  onDeleteMultipleOrders,
   categories,
   onAddCategory,
   onRemoveCategory,
@@ -306,6 +312,11 @@ export default function AdminPanel({
   // Deletion & Action Confirmation States
   const [isConfirmingClearCanceled, setIsConfirmingClearCanceled] = useState(false);
   const [confirmRemoveOrderId, setConfirmRemoveOrderId] = useState<string | null>(null);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [isConfirmingBulkDelete, setIsConfirmingBulkDelete] = useState(false);
+  const [isConfirmingClearFiltered, setIsConfirmingClearFiltered] = useState(false);
+  const [isConfirmingClearStreamHistory, setIsConfirmingClearStreamHistory] = useState(false);
+  const [isConfirmingClearDashboardStream, setIsConfirmingClearDashboardStream] = useState(false);
   const [confirmDeleteProductId, setConfirmDeleteProductId] = useState<string | null>(null);
   const [isConfirmingResetCatalog, setIsConfirmingResetCatalog] = useState(false);
 
@@ -748,13 +759,17 @@ export default function AdminPanel({
 
   // Metrics calculation
   const totalRevenue = orders.reduce((acc, curr) => acc + curr.total, 0);
-  const pendingOrders = orders.filter((o) => o.status === 'Processing').length;
-  const shippedOrders = orders.filter((o) => o.status === 'Shipped').length;
-  const deliveredOrders = orders.filter((o) => o.status === 'Delivered').length;
+  const isOrderPendingOrProcessing = (status?: string) => {
+    const s = (status || '').toLowerCase().trim();
+    return s === 'processing' || s === 'pending';
+  };
   const isOrderCancelled = (status?: string) => {
     const s = (status || '').toLowerCase().trim();
     return s === 'cancelled' || s === 'canceled';
   };
+  const pendingOrders = orders.filter((o) => isOrderPendingOrProcessing(o.status)).length;
+  const shippedOrders = orders.filter((o) => o.status === 'Shipped').length;
+  const deliveredOrders = orders.filter((o) => o.status === 'Delivered').length;
   const cancelledOrdersCount = orders.filter((o) => isOrderCancelled(o.status)).length;
 
   const handleResetCatalog = () => {
@@ -890,16 +905,91 @@ export default function AdminPanel({
     onUpdateOrders(updated);
   };
 
-  const handleRemoveOrder = (orderId: string) => {
-    const updated = orders.filter((o) => o.id !== orderId);
-    onUpdateOrders(updated);
-    setConfirmRemoveOrderId(null);
+  const toggleSelectOrder = (orderId: string) => {
+    setSelectedOrderIds((prev) =>
+      prev.includes(orderId) ? prev.filter((id) => id !== orderId) : [...prev, orderId]
+    );
   };
 
-  const handleBulkRemoveCanceled = () => {
-    const updated = orders.filter((o) => !isOrderCancelled(o.status));
-    onUpdateOrders(updated);
+  const handleSelectAllFiltered = (filteredList: Order[]) => {
+    const filteredIds = filteredList.map((o) => o.id);
+    const allSelected = filteredIds.length > 0 && filteredIds.every((id) => selectedOrderIds.includes(id));
+    if (allSelected) {
+      setSelectedOrderIds((prev) => prev.filter((id) => !filteredIds.includes(id)));
+    } else {
+      setSelectedOrderIds((prev) => Array.from(new Set([...prev, ...filteredIds])));
+    }
+  };
+
+  const handleDeselectAllOrders = () => {
+    setSelectedOrderIds([]);
+  };
+
+  const handleRemoveOrder = async (orderId: string) => {
+    if (onDeleteOrder) {
+      await onDeleteOrder(orderId);
+    } else {
+      const updated = orders.filter((o) => o.id !== orderId);
+      onUpdateOrders(updated);
+    }
+    setConfirmRemoveOrderId(null);
+    setSelectedOrderIds((prev) => prev.filter((id) => id !== orderId));
+  };
+
+  const handleBulkRemoveCanceled = async () => {
+    const cancelledOrders = orders.filter((o) => isOrderCancelled(o.status));
+    const cancelledIds = cancelledOrders.map((o) => o.id);
+    if (cancelledIds.length === 0) return;
+    if (onDeleteMultipleOrders) {
+      await onDeleteMultipleOrders(cancelledIds);
+    } else {
+      const updated = orders.filter((o) => !isOrderCancelled(o.status));
+      onUpdateOrders(updated);
+    }
+    setSelectedOrderIds((prev) => prev.filter((id) => !cancelledIds.includes(id)));
     setIsConfirmingClearCanceled(false);
+  };
+
+  const handleBulkRemoveSelected = async () => {
+    if (selectedOrderIds.length === 0) return;
+    if (onDeleteMultipleOrders) {
+      await onDeleteMultipleOrders(selectedOrderIds);
+    } else {
+      const idsSet = new Set(selectedOrderIds);
+      const updated = orders.filter((o) => !idsSet.has(o.id));
+      onUpdateOrders(updated);
+    }
+    setSelectedOrderIds([]);
+    setIsConfirmingBulkDelete(false);
+  };
+
+  const handleBulkRemoveFilteredOrders = async (filteredList: Order[]) => {
+    const idsToDelete = filteredList.map((o) => o.id);
+    if (idsToDelete.length === 0) return;
+    if (onDeleteMultipleOrders) {
+      await onDeleteMultipleOrders(idsToDelete);
+    } else {
+      const idsSet = new Set(idsToDelete);
+      const updated = orders.filter((o) => !idsSet.has(o.id));
+      onUpdateOrders(updated);
+    }
+    setSelectedOrderIds((prev) => prev.filter((id) => !idsToDelete.includes(id)));
+    setIsConfirmingClearFiltered(false);
+  };
+
+  const handleClearStreamHistory = async () => {
+    const streamOrderIds = orders.slice(0, 5).map((o) => o.id);
+    if (streamOrderIds.length === 0) return;
+    if (onDeleteMultipleOrders) {
+      await onDeleteMultipleOrders(streamOrderIds);
+    } else {
+      const idsSet = new Set(streamOrderIds);
+      const updated = orders.filter((o) => !idsSet.has(o.id));
+      onUpdateOrders(updated);
+    }
+    setSelectedOrderIds((prev) => prev.filter((id) => !streamOrderIds.includes(id)));
+    setIsConfirmingClearStreamHistory(false);
+    setIsConfirmingClearDashboardStream(false);
   };
 
   const handleCreateMockOrder = () => {
@@ -1002,10 +1092,19 @@ export default function AdminPanel({
   });
 
   const filteredOrders = orders.filter((o) => {
-    const matchesSearch = o.id.toLowerCase().includes(orderSearch.toLowerCase()) ||
-                          o.shippingDetails.fullName.toLowerCase().includes(orderSearch.toLowerCase()) ||
-                          o.shippingDetails.city.toLowerCase().includes(orderSearch.toLowerCase());
-    const matchesStatus = orderStatusFilter === 'All' || o.status === orderStatusFilter;
+    const searchLower = orderSearch.toLowerCase().trim();
+    const matchesSearch = !searchLower ||
+                          o.id.toLowerCase().includes(searchLower) ||
+                          o.shippingDetails.fullName.toLowerCase().includes(searchLower) ||
+                          o.shippingDetails.city.toLowerCase().includes(searchLower) ||
+                          (o.shippingDetails.phone && o.shippingDetails.phone.toLowerCase().includes(searchLower));
+    const matchesStatus = orderStatusFilter === 'All'
+      ? true
+      : orderStatusFilter === 'Processing'
+        ? isOrderPendingOrProcessing(o.status)
+        : orderStatusFilter === 'Cancelled'
+          ? isOrderCancelled(o.status)
+          : o.status === orderStatusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -1322,17 +1421,50 @@ export default function AdminPanel({
         {/* Expandable Stream History Dropdown */}
         {showNotificationStreamHistory && (
           <div className="mt-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm space-y-3 animate-fadeIn">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+            <div className="flex flex-wrap items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5 gap-2">
               <span className="text-xs font-black uppercase text-slate-700 dark:text-slate-300 tracking-wider">
                 Recent Order Stream History (Last 5 Incoming)
               </span>
-              <button
-                type="button"
-                onClick={() => setDismissedAlertOrderIds([])}
-                className="text-[11px] font-bold text-orange-600 hover:underline cursor-pointer"
-              >
-                Restore All Dismissed Alerts
-              </button>
+              <div className="flex items-center gap-2">
+                {orders.length > 0 && (
+                  !isConfirmingClearStreamHistory ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsConfirmingClearStreamHistory(true)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-950/50 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40 text-[11px] font-bold cursor-pointer transition-all shadow-2xs"
+                      title="Permanently delete all recent stream history orders"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      <span>Delete Stream History</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-1.5 p-1 bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-800 rounded-lg animate-fadeIn text-[11px]">
+                      <span className="font-bold text-rose-800 dark:text-rose-300">Delete {Math.min(orders.length, 5)} stream orders?</span>
+                      <button
+                        type="button"
+                        onClick={handleClearStreamHistory}
+                        className="px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded font-black cursor-pointer shadow-2xs"
+                      >
+                        Yes, Delete
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsConfirmingClearStreamHistory(false)}
+                        className="px-1.5 py-0.5 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded font-bold border border-slate-200 dark:border-slate-700 cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )
+                )}
+                <button
+                  type="button"
+                  onClick={() => setDismissedAlertOrderIds([])}
+                  className="text-[11px] font-bold text-orange-600 dark:text-orange-400 hover:underline cursor-pointer"
+                >
+                  Restore Alerts
+                </button>
+              </div>
             </div>
             {orders.length === 0 ? (
               <p className="text-xs text-slate-400 py-2">No orders recorded in current database.</p>
@@ -1355,7 +1487,7 @@ export default function AdminPanel({
                       <span className="text-[11px] text-slate-400">({ord.shippingDetails.city})</span>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <span className="font-black text-slate-950 dark:text-white">{formatPrice(ord.total)}</span>
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                         ord.status === 'Processing'
@@ -1374,9 +1506,17 @@ export default function AdminPanel({
                           setActiveSubTab('orders');
                           setOrderSearch(ord.id);
                         }}
-                        className="text-[11px] font-bold text-indigo-600 hover:underline cursor-pointer"
+                        className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
                       >
                         Inspect
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveOrder(ord.id)}
+                        className="p-1 rounded-md text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                        title="Delete this order from stream"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </div>
@@ -1775,7 +1915,7 @@ export default function AdminPanel({
                 <input
                   id="order-search-input"
                   type="text"
-                  placeholder="Search orders by ID, name, city..."
+                  placeholder="Search orders by ID, customer name, city, phone..."
                   value={orderSearch}
                   onChange={(e) => setOrderSearch(e.target.value)}
                   className="w-full rounded-xl border border-slate-205 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white py-2.5 pl-9 pr-4 text-xs transition-all focus:border-indigo-500 focus:outline-hidden"
@@ -1783,13 +1923,70 @@ export default function AdminPanel({
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                {cancelledOrdersCount > 0 && (
+                {/* Select All Filtered Toggle */}
+                {filteredOrders.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleSelectAllFiltered(filteredOrders)}
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                      filteredOrders.length > 0 && filteredOrders.every((o) => selectedOrderIds.includes(o.id))
+                        ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border-rose-300 dark:border-rose-800'
+                        : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                    title="Toggle selection of all currently displayed orders"
+                  >
+                    <CheckSquare className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+                    <span>
+                      {filteredOrders.length > 0 && filteredOrders.every((o) => selectedOrderIds.includes(o.id))
+                        ? `Deselect Filtered (${filteredOrders.length})`
+                        : `Select All (${filteredOrders.length})`}
+                    </span>
+                  </button>
+                )}
+
+                {/* Delete All Filtered Button with Confirmation */}
+                {filteredOrders.length > 0 && (
+                  !isConfirmingClearFiltered ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsConfirmingClearFiltered(true)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-rose-50/80 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40 hover:bg-rose-100 dark:hover:bg-rose-950/40 text-xs font-bold rounded-xl shadow-2xs transition-all shrink-0 cursor-pointer"
+                      title="Permanently remove all orders currently matching search/filter"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Delete All Filtered ({filteredOrders.length})</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800/80 rounded-xl shadow-xs animate-fadeIn">
+                      <span className="text-xs font-bold text-rose-800 dark:text-rose-300">
+                        Delete all {filteredOrders.length} {orderStatusFilter !== 'All' ? orderStatusFilter.toLowerCase() : ''} orders?
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleBulkRemoveFilteredOrders(filteredOrders)}
+                        className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-black text-xs rounded-lg transition-all shadow-xs cursor-pointer"
+                      >
+                        Yes, Delete All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsConfirmingClearFiltered(false)}
+                        className="px-2.5 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-lg border border-slate-200 dark:border-slate-700 transition-all cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )
+                )}
+
+                {/* Clear Canceled Shortcut Button */}
+                {cancelledOrdersCount > 0 && orderStatusFilter !== 'Processing' && (
                   !isConfirmingClearCanceled ? (
                     <button
                       id="btn-clear-canceled-orders"
                       type="button"
                       onClick={() => setIsConfirmingClearCanceled(true)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40 hover:bg-rose-100 dark:hover:bg-rose-950/40 text-xs font-bold rounded-xl shadow-2xs transition-all shrink-0 cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40 hover:bg-rose-100 dark:hover:bg-rose-950/40 text-xs font-bold rounded-xl shadow-2xs transition-all shrink-0 cursor-pointer"
                       title="Remove all canceled orders from history"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -1823,7 +2020,7 @@ export default function AdminPanel({
                   <button
                     type="button"
                     onClick={handleExportOrdersToCSV}
-                    className="inline-flex items-center gap-1.5 px-4.5 py-2.5 bg-slate-950 dark:bg-indigo-650 leading-none text-white hover:bg-slate-900 dark:hover:bg-indigo-600 text-xs font-bold rounded-xl shadow-xs transition-all hover:scale-[1.01] active:scale-[0.99] shrink-0 cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-slate-950 dark:bg-indigo-650 leading-none text-white hover:bg-slate-900 dark:hover:bg-indigo-600 text-xs font-bold rounded-xl shadow-xs transition-all hover:scale-[1.01] active:scale-[0.99] shrink-0 cursor-pointer"
                   >
                     <Download className="h-3.5 w-3.5" />
                     <span>Download Orders (CSV)</span>
@@ -1832,13 +2029,87 @@ export default function AdminPanel({
               </div>
             </div>
 
+            {/* Selected Orders Bulk Action Alert Bar */}
+            {selectedOrderIds.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-2xl shadow-xs animate-fadeIn">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-rose-600 text-white text-xs font-black">
+                    {selectedOrderIds.length}
+                  </span>
+                  <div>
+                    <span className="text-xs font-black text-rose-900 dark:text-rose-200 block">
+                      {selectedOrderIds.length} unwanted {selectedOrderIds.length === 1 ? 'order' : 'orders'} selected
+                    </span>
+                    <span className="text-[10px] text-rose-600 dark:text-rose-400">
+                      Delete them permanently from database and storage
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isConfirmingBulkDelete ? (
+                    <div className="flex items-center gap-2 animate-fadeIn">
+                      <span className="text-xs font-bold text-rose-900 dark:text-rose-200">
+                        Confirm delete {selectedOrderIds.length} orders?
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleBulkRemoveSelected}
+                        className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-black text-xs rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>Yes, Delete Selected</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsConfirmingBulkDelete(false)}
+                        className="px-2.5 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-100 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl border border-slate-200 dark:border-slate-700 transition-all cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setIsConfirmingBulkDelete(true)}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-xs transition-all cursor-pointer"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>Delete Selected ({selectedOrderIds.length})</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDeselectAllOrders}
+                        className="px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 text-slate-600 dark:text-slate-300 font-bold text-xs rounded-xl border border-slate-200 dark:border-slate-700 transition-all cursor-pointer"
+                      >
+                        Deselect All
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Status Segmented Tabs */}
             <div className="flex flex-wrap gap-1.5 p-1 bg-slate-100 dark:bg-slate-900/60 rounded-2xl w-fit">
               {(['All', 'Processing', 'Shipped', 'Delivered', 'Cancelled'] as const).map((status) => {
                 const count = status === 'All' 
                   ? orders.length 
-                  : orders.filter((o) => o.status === status).length;
+                  : status === 'Processing'
+                    ? orders.filter((o) => isOrderPendingOrProcessing(o.status)).length
+                    : status === 'Cancelled'
+                      ? orders.filter((o) => isOrderCancelled(o.status)).length
+                      : orders.filter((o) => o.status === status).length;
                 const isSelected = orderStatusFilter === status;
+                const label = status === 'Shipped' 
+                  ? 'Dispatched 🚚' 
+                  : status === 'Processing' 
+                    ? 'Pending / Processing ⏳' 
+                    : status === 'Delivered' 
+                      ? 'Delivered ✅' 
+                      : status === 'Cancelled' 
+                        ? 'Cancelled ❌' 
+                        : 'All Orders 📦';
                 return (
                   <button
                     key={status}
@@ -1850,7 +2121,7 @@ export default function AdminPanel({
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                     }`}
                   >
-                    <span>{status === 'Shipped' ? 'Dispatched 🚚' : status === 'Processing' ? 'Processing ⏳' : status === 'Delivered' ? 'Delivered ✅' : status === 'Cancelled' ? 'Cancelled ❌' : 'All Orders 📦'}</span>
+                    <span>{label}</span>
                     <span className={`px-1.5 py-0.5 text-[9px] rounded-md font-black ${
                       isSelected 
                         ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400' 
@@ -1871,16 +2142,16 @@ export default function AdminPanel({
                 </h4>
                 <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5 max-w-md mx-auto leading-relaxed">
                   {orderStatusFilter === 'Cancelled' 
-                    ? "There are currently no canceled orders. You can cancel active orders from the user 'My Purchases' section, or select 'All Orders' above and change any order's Dispatch Status to 'Cancelled ❌' using the dropdown selector to instantly trigger the permanent remove options."
-                    : "Try refining your search keyword or clearing filters."}
+                    ? "There are currently no canceled orders. You can delete any unwanted order directly using the Delete button on active order cards."
+                    : "Try refining your search keyword or clearing status filters."}
                 </p>
-                {orderStatusFilter === 'Cancelled' && (
+                {orderStatusFilter !== 'All' && (
                   <button
                     type="button"
                     onClick={() => setOrderStatusFilter('All')}
                     className="mt-4 px-3.5 py-2 bg-slate-950 dark:bg-slate-850 hover:bg-slate-900 dark:hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"
                   >
-                    View All Active Pipeline
+                    View All Orders
                   </button>
                 )}
               </div>
@@ -1890,12 +2161,26 @@ export default function AdminPanel({
                   <div
                     key={ord.id}
                     id={`order-mgmt-card-${ord.id}`}
-                    className="p-5 border border-slate-150 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-950 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6"
+                    className={`p-5 border rounded-2xl bg-white dark:bg-slate-950 shadow-2xs transition-all flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6 ${
+                      selectedOrderIds.includes(ord.id)
+                        ? 'border-rose-400 dark:border-rose-800/80 ring-2 ring-rose-500/20 bg-rose-50/20 dark:bg-rose-950/10'
+                        : 'border-slate-150 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                    }`}
                   >
                     <div className="space-y-3 flex-1">
-                      {/* Top info */}
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-black text-slate-950 dark:text-white select-all">{ord.id}</span>
+                      {/* Top info with checkbox selection */}
+                      <div className="flex flex-wrap items-center gap-3">
+                        <label className="flex items-center gap-2 cursor-pointer select-none group">
+                          <input
+                            type="checkbox"
+                            checked={selectedOrderIds.includes(ord.id)}
+                            onChange={() => toggleSelectOrder(ord.id)}
+                            className="h-4 w-4 rounded border-slate-300 dark:border-slate-700 text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600"
+                          />
+                          <span className="text-xs font-black text-slate-950 dark:text-white select-all group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
+                            {ord.id}
+                          </span>
+                        </label>
                         <span className="text-slate-350 dark:text-slate-600 text-[10px] font-bold">•</span>
                         <div className="flex items-center gap-1 text-slate-405 dark:text-slate-400 text-[10px] font-bold">
                            <Clock className="h-3 w-3" />
@@ -1905,6 +2190,11 @@ export default function AdminPanel({
                         <span className="bg-indigo-50/60 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 text-[10px] font-extrabold px-2 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/40">
                           {ord.paymentMethod}
                         </span>
+                        {isOrderPendingOrProcessing(ord.status) && (
+                          <span className="bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-[10px] font-extrabold px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-900/40">
+                            Pending / Processing
+                          </span>
+                        )}
                       </div>
 
                       {/* Items */}
@@ -1960,7 +2250,7 @@ export default function AdminPanel({
                       )}
                     </div>
 
-                    {/* Right side: Amount + Status controls */}
+                    {/* Right side: Amount + Status controls + Universal Delete */}
                     <div className="flex flex-row lg:flex-col items-center lg:items-end justify-between lg:justify-start gap-4 lg:min-w-[190px] border-t lg:border-t-0 border-slate-105 dark:border-slate-800/80 pt-4 lg:pt-0">
                       <div className="text-left lg:text-right">
                         <span className="block text-[9px] font-bold text-slate-400 dark:text-slate-505 uppercase tracking-widest">Amount Settled</span>
@@ -1970,55 +2260,58 @@ export default function AdminPanel({
                         </span>
                       </div>
 
-                      <div className="space-y-1.5 w-full max-w-[150px]">
+                      <div className="space-y-1.5 w-full max-w-[155px]">
                         <label className="block text-[9px] font-black uppercase text-slate-400 dark:text-slate-505 tracking-wider lg:text-right">Dispatch Status</label>
                         <select
                           value={ord.status}
                           onChange={(e) => handleUpdateOrderStatus(ord.id, e.target.value as any)}
                           className={`w-full rounded-xl border px-2.5 py-1.5 text-xs font-bold transition-all focus:outline-hidden cursor-pointer ${
-                            ord.status === 'Processing' ? 'bg-amber-50 dark:bg-amber-955/20 border-amber-200 dark:border-amber-900/50 text-amber-800 dark:text-amber-305' :
+                            isOrderPendingOrProcessing(ord.status) ? 'bg-amber-50 dark:bg-amber-955/20 border-amber-200 dark:border-amber-900/50 text-amber-800 dark:text-amber-305' :
                             ord.status === 'Shipped' ? 'bg-indigo-50 dark:bg-indigo-955/20 border-indigo-200 dark:border-indigo-900/50 text-indigo-805 dark:text-indigo-305' :
-                            ord.status === 'Cancelled' ? 'bg-rose-50 dark:bg-rose-955/20 border-rose-200 dark:border-rose-900/50 text-rose-805 dark:text-rose-305' :
+                            isOrderCancelled(ord.status) ? 'bg-rose-50 dark:bg-rose-955/20 border-rose-200 dark:border-rose-900/50 text-rose-805 dark:text-rose-305' :
                             'bg-emerald-50 dark:bg-emerald-955/20 border-emerald-200 dark:border-emerald-900/50 text-emerald-800 dark:text-emerald-305'
                           }`}
                         >
-                          <option value="Processing" className="dark:bg-slate-900 dark:text-white">Processing ⏳</option>
+                          <option value="Processing" className="dark:bg-slate-900 dark:text-white">Pending / Processing ⏳</option>
                           <option value="Shipped" className="dark:bg-slate-900 dark:text-white">Dispatched 🚚</option>
                           <option value="Delivered" className="dark:bg-slate-900 dark:text-white">Delivered ✅</option>
                           <option value="Cancelled" className="dark:bg-slate-900 dark:text-white">Cancelled ❌</option>
                         </select>
-                        {isOrderCancelled(ord.status) && (
-                          confirmRemoveOrderId === ord.id ? (
-                            <div className="w-full mt-2 p-2 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 rounded-xl flex flex-col gap-1.5 animate-fadeIn">
-                              <span className="text-[10px] font-bold text-rose-800 dark:text-rose-300 text-center">Permanently remove?</span>
-                              <div className="flex gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveOrder(ord.id)}
-                                  className="flex-1 py-1 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-lg text-[10px] font-black cursor-pointer shadow-2xs transition-all"
-                                >
-                                  Delete
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setConfirmRemoveOrderId(null)}
-                                  className="flex-1 py-1 bg-white dark:bg-slate-800 hover:bg-slate-100 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold cursor-pointer transition-all"
-                                >
-                                  Keep
-                                </button>
-                              </div>
+
+                        {/* Direct Delete Button for ALL orders, whether Pending, Shipped, Delivered, or Cancelled */}
+                        {confirmRemoveOrderId === ord.id ? (
+                          <div className="w-full mt-2 p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 rounded-xl flex flex-col gap-1.5 animate-fadeIn">
+                            <span className="text-[10px] font-bold text-rose-800 dark:text-rose-300 text-center">
+                              Permanently delete this order?
+                            </span>
+                            <div className="flex gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveOrder(ord.id)}
+                                className="flex-1 py-1.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-lg text-[10px] font-black cursor-pointer shadow-2xs transition-all flex items-center justify-center gap-1"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                                <span>Delete</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmRemoveOrderId(null)}
+                                className="flex-1 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-100 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold cursor-pointer transition-all"
+                              >
+                                Keep
+                              </button>
                             </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => setConfirmRemoveOrderId(ord.id)}
-                              className="w-full mt-2 flex items-center justify-center gap-1 bg-rose-50/80 hover:bg-rose-150 dark:bg-rose-950/25 dark:hover:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-205 dark:border-rose-900/40 rounded-xl py-1.5 px-3 text-[11px] font-black transition-all duration-200 cursor-pointer"
-                              title="Remove canceled order permanently"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                              <span>Remove Order</span>
-                            </button>
-                          )
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmRemoveOrderId(ord.id)}
+                            className="w-full mt-2 flex items-center justify-center gap-1.5 bg-rose-50/80 hover:bg-rose-100 dark:bg-rose-950/25 dark:hover:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/40 rounded-xl py-1.5 px-3 text-[11px] font-bold transition-all duration-200 cursor-pointer"
+                            title="Delete this order permanently"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            <span>Delete Order</span>
+                          </button>
                         )}
                       </div>
                     </div>
